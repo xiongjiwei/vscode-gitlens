@@ -99,55 +99,7 @@ export function getSubscriptionStateString(state: SubscriptionState | undefined)
 }
 
 export function computeSubscriptionState(subscription: Optional<Subscription, 'state'>): SubscriptionState {
-	const {
-		account,
-		plan: { actual, effective },
-		previewTrial: preview,
-	} = subscription;
-
-	if (account?.verified === false) return SubscriptionState.VerificationRequired;
-
-	if (actual.id === effective.id) {
-		switch (effective.id) {
-			case SubscriptionPlanId.Community:
-				return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreviewExpired;
-
-			case SubscriptionPlanId.CommunityWithAccount: {
-				if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
-					return SubscriptionState.ProTrialReactivationEligible;
-				}
-
-				return SubscriptionState.ProTrialExpired;
-			}
-
-			case SubscriptionPlanId.Pro:
-			case SubscriptionPlanId.Teams:
-			case SubscriptionPlanId.Enterprise:
-				return SubscriptionState.Paid;
-		}
-	}
-
-	switch (effective.id) {
-		case SubscriptionPlanId.Community:
-			return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreview;
-
-		case SubscriptionPlanId.CommunityWithAccount: {
-			if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
-				return SubscriptionState.ProTrialReactivationEligible;
-			}
-
-			return SubscriptionState.ProTrialExpired;
-		}
-
-		case SubscriptionPlanId.Pro:
-			return actual.id === SubscriptionPlanId.Community
-				? SubscriptionState.ProPreview
-				: SubscriptionState.ProTrial;
-
-		case SubscriptionPlanId.Teams:
-		case SubscriptionPlanId.Enterprise:
-			return SubscriptionState.Paid;
-	}
+	return SubscriptionState.Paid;
 }
 
 export function getSubscriptionPlan(
