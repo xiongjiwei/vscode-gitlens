@@ -13,6 +13,7 @@ import {
 	SubscriptionState,
 } from '../../../../../plus/gk/account/subscription';
 import { pluralize } from '../../../../../system/string';
+import { focusOutline } from '../../../shared/components/styles/lit/a11y.css';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
@@ -21,6 +22,11 @@ import '../../../shared/components/promo';
 
 @customElement('account-content')
 export class AccountContent extends LitElement {
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	static override styles = [
 		elementBase,
 		linkBase,
@@ -28,6 +34,10 @@ export class AccountContent extends LitElement {
 			:host {
 				display: block;
 				margin-bottom: 1.3rem;
+			}
+
+			:host > * {
+				margin-bottom: 0;
 			}
 
 			button-container {
@@ -130,6 +140,23 @@ export class AccountContent extends LitElement {
 			.special-dim {
 				font-size: smaller;
 				opacity: 0.6;
+			}
+
+			details {
+				margin-top: 0.6rem;
+			}
+
+			summary {
+				cursor: pointer;
+			}
+
+			summary:focus-visible {
+				${focusOutline}
+			}
+
+			details[open] summary {
+				font-weight: bold;
+				margin-bottom: 0.2rem;
 			}
 		`,
 	];
@@ -264,11 +291,12 @@ export class AccountContent extends LitElement {
 							>Integrations</gl-button
 						>
 					</button-container>
-					<p>
+					<details>
+						<summary>DevEx Platform</summary>
 						Your ${getSubscriptionPlanName(this.planId)} plan provides full access to all Pro features and
 						our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization &
 						productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
-					</p>
+					</details>
 				`;
 
 			case SubscriptionState.VerificationRequired:
@@ -343,11 +371,11 @@ export class AccountContent extends LitElement {
 
 	private renderIncludesDevEx() {
 		return html`
-			<p>
-				Includes access to our
-				<a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git visualization & productivity
-				capabilities everywhere you work: IDE, desktop, browser, and terminal.
-			</p>
+			<details>
+				<summary>DevEx Platform</summary>
+				Includes access to our <a href="${urls.platform}">DevEx platform</a>, unleashing powerful Git
+				visualization & productivity capabilities everywhere you work: IDE, desktop, browser, and terminal.
+			</details>
 		`;
 	}
 
