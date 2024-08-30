@@ -12,7 +12,7 @@ import {
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommand } from '../../protocol';
-import type { AccountContent } from '../plus/account/components/account-content';
+import type { AccountContent } from '../plus/account/components/account-content-2';
 import { App } from '../shared/appBase';
 import type { GlFeatureBadge } from '../shared/components/feature-badge';
 import type { GlPromo } from '../shared/components/promo';
@@ -22,7 +22,7 @@ import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
-import '../plus/account/components/account-content';
+import '../plus/account/components/account-content-2';
 
 export class HomeApp extends App<State> {
 	constructor() {

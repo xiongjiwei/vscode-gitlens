@@ -16,8 +16,6 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
-		<account-content id="account-content"></account-content>
-
-		#{endOfBody}
+		<gl-account-app name="AccountView" placement="#{placement}" state="#{state}"></gl-account-app>
 	</body>
 </html>
