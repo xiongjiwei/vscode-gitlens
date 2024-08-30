@@ -225,6 +225,7 @@ export class AccountContent extends LitElement {
 				)}
 			</div>
 			${this.renderOrganization()}${this.renderAccountState()}
+			<slot></slot>
 		</gl-accordion>`;
 	}
 
