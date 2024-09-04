@@ -14,8 +14,8 @@ import {
 } from '../../../../../plus/gk/account/subscription';
 import type { State } from '../../../../../plus/webviews/account/protocol';
 import { pluralize } from '../../../../../system/string';
+import { stateContext } from '../../../home/context';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
-import { stateContext } from '../context';
 import '../../../shared/components/button';
 import '../../../shared/components/button-container';
 import '../../../shared/components/code-icon';

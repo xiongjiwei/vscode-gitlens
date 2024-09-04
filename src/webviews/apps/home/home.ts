@@ -1,262 +1,319 @@
 /*global*/
 import './home.scss';
+import { consume } from '@lit/context';
 import { html } from 'lit';
-import type { Disposable } from 'vscode';
+import { customElement, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import { getApplicablePromo } from '../../../plus/gk/account/promos';
 import type { State } from '../../home/protocol';
-import {
-	CollapseSectionCommand,
-	DidChangeIntegrationsConnections,
-	DidChangeOrgSettings,
-	DidChangeRepositories,
-	DidChangeSubscription,
-} from '../../home/protocol';
-import type { IpcMessage } from '../../protocol';
-import { ExecuteCommand } from '../../protocol';
-import type { AccountContent } from '../plus/account/components/account-content-2';
+import { CollapseSectionCommand } from '../../home/protocol';
 import { GlApp } from '../shared/app';
-import { App } from '../shared/appBase';
-import type { GlFeatureBadge } from '../shared/components/feature-badge';
-import type { GlPromo } from '../shared/components/promo';
-import { DOM } from '../shared/dom';
 import type { HostIpc } from '../shared/ipc';
+import { stateContext } from './context';
+import { homeStyles } from './home.css';
 import { HomeStateProvider } from './stateProvider';
 import '../shared/components/button';
 import '../shared/components/code-icon';
 import '../shared/components/feature-badge';
 import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
-import '../plus/account/components/account-content-2';
+import '../plus/account/components/account-content';
+import './components/feature-nav';
 
+@customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
+	static override styles = [homeStyles];
+
+	private badgeSource = { source: 'home', detail: 'badge' };
+
 	protected override createStateProvider(state: State, ipc: HostIpc) {
 		return new HomeStateProvider(this, state, ipc);
 	}
 
-	override render() {
-		return html`<account-content id="account-content"></account-content>`;
-	}
-}
+	@consume<State>({ context: stateContext, subscribe: true })
+	@state()
+	private _state!: State;
 
-export class HomeApp extends App<State> {
-	constructor() {
-		super('HomeApp');
-	}
-
-	private get blockRepoFeatures() {
-		const {
-			repositories: { openCount, hasUnsafe, trusted },
-		} = this.state;
-		return !trusted || openCount === 0 || hasUnsafe;
-	}
-
-	protected override onInitialize() {
-		this.state = this.getState() ?? this.state;
-		this.updateState();
-	}
-
-	protected override onBind(): Disposable[] {
-		const disposables = super.onBind?.() ?? [];
-
-		disposables.push(
-			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
-			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
-			DOM.on('[data-section-toggle]', 'click', (e, target: HTMLElement) =>
-				this.onSectionToggleClicked(e, target),
-			),
-			DOM.on('[data-section-expand]', 'click', (e, target: HTMLElement) =>
-				this.onSectionExpandClicked(e, target),
-			),
-		);
-
-		return disposables;
-	}
-
-	protected override onMessageReceived(msg: IpcMessage) {
-		switch (true) {
-			case DidChangeRepositories.is(msg):
-				this.state.repositories = msg.params;
-				this.state.timestamp = Date.now();
-				this.setState(this.state);
-				this.updateNoRepo();
-				break;
-
-			case DidChangeSubscription.is(msg):
-				this.state.subscription = msg.params.subscription;
-				this.state.avatar = msg.params.avatar;
-				this.state.organizationsCount = msg.params.organizationsCount;
-				this.state.timestamp = Date.now();
-				this.setState(this.state);
-				this.updatePromos();
-				this.updateSourceAndSubscription();
-				this.updateAccountSection();
-
-				break;
-
-			case DidChangeOrgSettings.is(msg):
-				this.state.orgSettings = msg.params.orgSettings;
-				this.state.timestamp = Date.now();
-				this.setState(this.state);
-				this.updateOrgSettings();
-				break;
-
-			case DidChangeIntegrationsConnections.is(msg):
-				this.state.hasAnyIntegrationConnected = msg.params.hasAnyIntegrationConnected;
-				this.state.timestamp = Date.now();
-				this.setState(this.state);
-				this.updateIntegrations();
-				break;
-
-			default:
-				super.onMessageReceived?.(msg);
-				break;
-		}
-	}
-
-	private onRepoFeatureClicked(e: MouseEvent, _target: HTMLElement) {
-		if (this.blockRepoFeatures) {
-			e.preventDefault();
-			e.stopPropagation();
-			return false;
+	get alertVisibility() {
+		const sections = {
+			header: false,
+			untrusted: false,
+			noRepo: false,
+			unsafeRepo: false,
+		};
+		if (this._state == null) {
+			return sections;
 		}
 
-		return true;
-	}
-
-	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
-		const action = target.dataset.action;
-		this.onActionClickedCore(action);
-	}
-
-	private onActionClickedCore(action?: string) {
-		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommand, { command: action.slice(8) });
+		if (!this._state.repositories.trusted) {
+			sections.header = true;
+			sections.untrusted = true;
+		} else if (this._state.repositories.openCount === 0) {
+			sections.header = true;
+			sections.noRepo = true;
+		} else if (this._state.repositories.hasUnsafe) {
+			sections.header = true;
+			sections.unsafeRepo = true;
 		}
-	}
 
-	private onSectionToggleClicked(e: MouseEvent, target: HTMLElement) {
-		e.stopImmediatePropagation();
-		const section = target.dataset.sectionToggle;
+		return sections;
+	}
+	private onSectionExpandClicked(e: MouseEvent, isToggle = false) {
+		if (isToggle) {
+			e.stopImmediatePropagation();
+		}
+		const target = (e.target as HTMLElement).closest('[data-section-expand]') as HTMLElement;
+		const section = target?.dataset.sectionExpand;
 		if (section !== 'walkthrough') {
 			return;
 		}
 
-		this.updateCollapsedSections(!this.state.walkthroughCollapsed);
-	}
-
-	private onSectionExpandClicked(e: MouseEvent, target: HTMLElement) {
-		const section = target.dataset.sectionExpand;
-		if (section !== 'walkthrough') {
+		if (isToggle) {
+			this.updateCollapsedSections(!this._state.walkthroughCollapsed);
 			return;
 		}
+
 		this.updateCollapsedSections(false);
 	}
 
-	private updateNoRepo() {
-		const {
-			repositories: { openCount, hasUnsafe, trusted },
-		} = this.state;
-
-		const header = document.getElementById('header')!;
-		if (!trusted) {
-			header.hidden = false;
-			setElementVisibility('untrusted-alert', true);
-			setElementVisibility('no-repo-alert', false);
-			setElementVisibility('unsafe-repo-alert', false);
-
-			return;
-		}
-
-		setElementVisibility('untrusted-alert', false);
-
-		const noRepos = openCount === 0;
-		setElementVisibility('no-repo-alert', noRepos && !hasUnsafe);
-		setElementVisibility('unsafe-repo-alert', hasUnsafe);
-		header.hidden = !noRepos && !hasUnsafe;
-	}
-
-	private updatePromos() {
-		const promo = getApplicablePromo(this.state.subscription.state);
-
-		const $promo = document.getElementById('promo') as GlPromo;
-		$promo.promo = promo;
-	}
-
-	private updateOrgSettings() {
-		const {
-			orgSettings: { drafts },
-		} = this.state;
-
-		for (const el of document.querySelectorAll<HTMLElement>('[data-org-requires="drafts"]')) {
-			setElementVisibility(el, drafts);
-		}
-	}
-
-	private updateSourceAndSubscription() {
-		const { subscription } = this.state;
-		const els = document.querySelectorAll<GlFeatureBadge>('gl-feature-badge');
-		for (const el of els) {
-			el.source = { source: 'home', detail: 'badge' };
-			el.subscription = subscription;
-		}
-	}
-
-	private updateCollapsedSections(toggle = this.state.walkthroughCollapsed) {
-		this.state.walkthroughCollapsed = toggle;
-		this.setState({ walkthroughCollapsed: toggle });
-		document.getElementById('section-walkthrough')!.classList.toggle('is-collapsed', toggle);
-		this.sendCommand(CollapseSectionCommand, {
+	private updateCollapsedSections(toggle = this._state.walkthroughCollapsed) {
+		this._state.walkthroughCollapsed = toggle;
+		this.requestUpdate();
+		this._ipc.sendCommand(CollapseSectionCommand, {
 			section: 'walkthrough',
 			collapsed: toggle,
 		});
 	}
 
-	private updateIntegrations() {
-		const { hasAnyIntegrationConnected } = this.state;
-		const els = document.querySelectorAll<HTMLElement>('[data-integrations]');
-		const dataValue = hasAnyIntegrationConnected ? 'connected' : 'none';
-		for (const el of els) {
-			setElementVisibility(el, el.dataset.integrations === dataValue);
+	renderAlerts() {
+		if (this._state == null || !this.alertVisibility.header) {
+			return;
 		}
+
+		return html`
+			<header class="home__header" id="header" ?hidden=${!this.alertVisibility.header}>
+				${when(
+					this.alertVisibility.noRepo,
+					() => html`
+						<div id="no-repo-alert" class="alert alert--info mb-0" ?hidden=${!this.alertVisibility.noRepo}>
+							<h1 class="alert__title">No repository detected</h1>
+							<div class="alert__description">
+								<p>
+									To use GitLens, open a folder containing a git repository or clone from a URL from
+									the Explorer.
+								</p>
+								<p class="centered">
+									<gl-button class="is-basic" href="command:workbench.view.explorer"
+										>Open a Folder or Repository</gl-button
+									>
+								</p>
+								<p class="mb-0">
+									If you have opened a folder with a repository, please let us know by
+									<a
+										class="one-line"
+										href="https://github.com/gitkraken/vscode-gitlens/issues/new/choose"
+										>creating an Issue</a
+									>.
+								</p>
+							</div>
+						</div>
+					`,
+				)}
+				${when(
+					this.alertVisibility.unsafeRepo,
+					() => html`
+						<div
+							id="unsafe-repo-alert"
+							class="alert alert--info mb-0"
+							?hidden=${!this.alertVisibility.unsafeRepo}
+						>
+							<h1 class="alert__title">Unsafe repository</h1>
+							<div class="alert__description">
+								<p>
+									Unable to open any repositories as Git blocked them as potentially unsafe, due to
+									the folder(s) not being owned by the current user.
+								</p>
+								<p class="centered">
+									<gl-button class="is-basic" href="command:workbench.view.scm"
+										>Manage in Source Control</gl-button
+									>
+								</p>
+							</div>
+						</div>
+					`,
+				)}
+				${when(
+					this.alertVisibility.untrusted,
+					() => html`
+						<div
+							id="untrusted-alert"
+							class="alert alert--info mb-0"
+							aria-hidden="true"
+							?hidden=${!this.alertVisibility.untrusted}
+						>
+							<h1 class="alert__title">Untrusted workspace</h1>
+							<div class="alert__description">
+								<p>Unable to open repositories in Restricted Mode.</p>
+								<p class="centered">
+									<gl-button class="is-basic" href="command:workbench.trust.manage"
+										>Manage Workspace Trust</gl-button
+									>
+								</p>
+							</div>
+						</div>
+					`,
+				)}
+			</header>
+		`;
 	}
 
-	private updateState() {
-		this.updateNoRepo();
-		this.updatePromos();
-		this.updateSourceAndSubscription();
-		this.updateOrgSettings();
-		this.updateCollapsedSections();
-		this.updateIntegrations();
-		this.updateAccountSection();
-	}
+	override render() {
+		return html`
+			<div class="home scrollable">
+				${this.renderAlerts()}
+				<main class="home__main scrollable" id="main">
+					${when(
+						this.alertVisibility.header,
+						() => html`
+							<p data-requires="norepo">
+								<code-icon icon="question"></code-icon> Features which need a repository are currently
+								unavailable
+							</p>
+						`,
+					)}
+					<div
+						id="section-walkthrough"
+						data-section-expand="walkthrough"
+						class="alert${this.state.walkthroughCollapsed ? ' is-collapsed' : ''}"
+						@click=${(e: MouseEvent) => this.onSectionExpandClicked(e)}
+					>
+						<h1 class="alert__title">Get Started with GitLens</h1>
+						<div class="alert__description">
+							<p>Explore all of the powerful features in GitLens</p>
+							<p class="button-container button-container--trio">
+								<gl-button
+									appearance="secondary"
+									full
+									href="command:gitlens.showWelcomePage"
+									aria-label="Open Welcome"
+									>Start Here (Welcome)</gl-button
+								>
+								<span class="button-group button-group--single">
+									<gl-button appearance="secondary" full href="command:gitlens.getStarted?%22home%22"
+										>Walkthrough</gl-button
+									>
+									<gl-button
+										appearance="secondary"
+										full
+										href=${'https://youtu.be/oJdlGtsbc3U?utm_source=inapp&utm_medium=home_banner&utm_id=GitLens+tutorial'}
+										aria-label="Watch the GitLens Tutorial video"
+										tooltip="Watch the GitLens Tutorial video"
+										><code-icon icon="vm-running" slot="prefix"></code-icon>Tutorial</gl-button
+									>
+								</span>
+							</p>
+						</div>
+						<a
+							href="#"
+							class="alert__close"
+							data-section-toggle="walkthrough"
+							@click=${(e: MouseEvent) => this.onSectionExpandClicked(e, true)}
+						>
+							<gl-tooltip hoist>
+								<code-icon icon="chevron-down" aria-label="Collapse walkthrough section"></code-icon>
+								<span slot="content">Collapse</span>
+							</gl-tooltip>
+							<gl-tooltip hoist>
+								<code-icon icon="chevron-right" aria-label="Expand walkthrough section"></code-icon>
+								<span slot="content">Expand</span>
+							</gl-tooltip>
+						</a>
+					</div>
+					<gl-feature-nav .badgeSource=${this.badgeSource}></gl-feature-nav>
+				</main>
 
-	private updateAccountSection() {
-		const { subscription, avatar, organizationsCount } = this.state;
-
-		const $content = document.getElementById('account-content')! as AccountContent;
-
-		$content.image = avatar ?? '';
-		$content.subscription = subscription;
-		$content.organizationsCount = organizationsCount ?? 0;
+				<footer class="home__footer">
+					<account-content id="account-content">
+						<div class="home__nav">
+							<gl-promo
+								.promo=${getApplicablePromo(this.state.subscription.state)}
+								class="promo-banner promo-banner--eyebrow"
+								id="promo"
+								type="link"
+							></gl-promo>
+							<nav class="inline-nav" id="links" aria-label="Help and Resources">
+								<div class="inline-nav__group">
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link inline-nav__link--text"
+											href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+											aria-label="What's New"
+											><code-icon icon="megaphone"></code-icon><span>What's New</span></a
+										>
+										<span slot="content">What's New</span>
+									</gl-tooltip>
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link inline-nav__link--text"
+											href="https://help.gitkraken.com/gitlens/gitlens-home/"
+											aria-label="Help Center"
+											><code-icon icon="question"></code-icon><span>Help</span></a
+										>
+										<span slot="content">Help Center</span>
+									</gl-tooltip>
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link inline-nav__link--text"
+											href="https://github.com/gitkraken/vscode-gitlens/issues"
+											aria-label="Feedback"
+											><code-icon icon="feedback"></code-icon><span>Feedback</span></a
+										>
+										<span slot="content">Feedback</span>
+									</gl-tooltip>
+								</div>
+								<div class="inline-nav__group">
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link"
+											href="https://github.com/gitkraken/vscode-gitlens/discussions"
+											aria-label="GitHub Discussions"
+											><code-icon icon="comment-discussion"></code-icon
+										></a>
+										<span slot="content">GitHub Discussions</span>
+									</gl-tooltip>
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link"
+											href="https://github.com/gitkraken/vscode-gitlens"
+											aria-label="GitHub Repo"
+											><code-icon icon="github"></code-icon
+										></a>
+										<span slot="content">GitHub Repo</span>
+									</gl-tooltip>
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link"
+											href="https://twitter.com/gitlens"
+											aria-label="@gitlens on Twitter"
+											><code-icon icon="twitter"></code-icon
+										></a>
+										<span slot="content">@gitlens on Twitter</span>
+									</gl-tooltip>
+									<gl-tooltip hoist>
+										<a
+											class="inline-nav__link"
+											href=${'https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links'}
+											aria-label="GitLens Website"
+											><code-icon icon="globe"></code-icon
+										></a>
+										<span slot="content">GitLens Website</span>
+									</gl-tooltip>
+								</div>
+							</nav>
+						</div>
+					</account-content>
+				</footer>
+			</div>
+		`;
 	}
 }
-
-function setElementVisibility(elementOrId: string | HTMLElement | null | undefined, visible: boolean) {
-	let el;
-	if (typeof elementOrId === 'string') {
-		el = document.getElementById(elementOrId);
-	} else {
-		el = elementOrId;
-	}
-	if (el == null) return;
-
-	if (visible) {
-		el.removeAttribute('aria-hidden');
-		el.removeAttribute('hidden');
-	} else {
-		el.setAttribute('aria-hidden', '');
-		el?.setAttribute('hidden', '');
-	}
-}
-
-new HomeApp();
