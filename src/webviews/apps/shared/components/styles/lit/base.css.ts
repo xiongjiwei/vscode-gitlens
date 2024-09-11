@@ -29,6 +29,13 @@ export const linkBase = css`
 `;
 
 export const scrollableBase = css`
+	/* This @supports selector is a temporary fix for https://github.com/microsoft/vscode/issues/213045#issuecomment-2211442905 */
+	@supports selector(::-webkit-scrollbar) {
+		html {
+			scrollbar-color: unset;
+		}
+	}
+
 	::-webkit-scrollbar {
 		width: 10px;
 		height: 10px;
@@ -59,6 +66,10 @@ export const scrollableBase = css`
 	:host(:hover) .scrollable,
 	:host(:focus-within) .scrollable {
 		border-color: var(--vscode-scrollbarSlider-background);
+		transition: none;
+	}
+
+	:host-context(.preload) .scrollable {
 		transition: none;
 	}
 `;
