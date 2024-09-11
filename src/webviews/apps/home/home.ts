@@ -19,6 +19,7 @@ import '../shared/components/overlays/tooltip';
 import '../shared/components/promo';
 import '../plus/account/components/account-content';
 import './components/feature-nav';
+import './components/repo-alerts';
 
 @customElement('gl-home-app')
 export class GlHomeApp extends GlApp<State> {
@@ -170,7 +171,7 @@ export class GlHomeApp extends GlApp<State> {
 	override render() {
 		return html`
 			<div class="home scrollable">
-				${this.renderAlerts()}
+				<gl-repo-alerts class="home__header"></gl-repo-alerts>
 				<main class="home__main scrollable" id="main">
 					${when(
 						this.alertVisibility.header,

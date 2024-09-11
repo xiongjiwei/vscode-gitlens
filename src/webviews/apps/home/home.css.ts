@@ -260,6 +260,76 @@ export const homeStyles = css`
 	}
 `;
 
+export const alertStyles = css`
+	${linkBase}
+
+	.alert {
+		position: relative;
+		padding: 0.8rem 1.2rem;
+		line-height: 1.2;
+		margin-bottom: 1.2rem;
+		background-color: var(--color-alert-neutralBackground);
+		border-left: 0.3rem solid var(--color-alert-neutralBorder);
+		color: var(--color-alert-foreground);
+	}
+	.alert__title {
+		font-size: 1.4rem;
+		margin: 0;
+	}
+	.alert__description {
+		font-size: 1.2rem;
+		margin: 0.4rem 0 0;
+	}
+	.alert__description > :first-child {
+		margin-top: 0;
+	}
+	.alert__description > :last-child {
+		margin-bottom: 0;
+	}
+	.alert__close {
+		position: absolute;
+		top: 0.8rem;
+		right: 0.8rem;
+		color: inherit;
+		opacity: 0.64;
+	}
+	.alert__close:hover {
+		color: inherit;
+		opacity: 1;
+	}
+	.alert.is-collapsed {
+		cursor: pointer;
+	}
+	.alert.is-collapsed:hover {
+		background-color: var(--color-alert-neutralHoverBackground);
+	}
+	.alert.is-collapsed .alert__description,
+	.alert.is-collapsed .alert__close gl-tooltip:first-child,
+	.alert:not(.is-collapsed) .alert__close gl-tooltip:last-child {
+		display: none;
+	}
+	.alert--info {
+		background-color: var(--color-alert-infoBackground);
+		border-left-color: var(--color-alert-infoBorder);
+	}
+	.alert--warning {
+		background-color: var(--color-alert-warningBackground);
+		border-left-color: var(--color-alert-warningBorder);
+	}
+	.alert--danger {
+		background-color: var(--color-alert-errorBackground);
+		border-left-color: var(--color-alert-errorBorder);
+	}
+
+	gl-button.is-basic {
+		max-width: 300px;
+		width: 100%;
+	}
+	gl-button.is-basic + gl-button.is-basic {
+		margin-top: 1rem;
+	}
+`;
+
 export const navListStyles = css`
 	${linkBase}
 
