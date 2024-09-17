@@ -45,10 +45,12 @@ import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } fro
 import { configuration } from '../../system/configuration';
 import { getScopedCounter } from '../../system/counter';
 import { fromNow } from '../../system/date';
+import { Debouncer } from '../../system/debouncer';
 import { some } from '../../system/iterable';
 import { interpolate, pluralize } from '../../system/string';
 import { openUrl } from '../../system/utils';
 import { getApplicablePromo } from '../gk/account/promos';
+import { getPullRequestIdentityValuesFromSearch } from '../integrations/providers/github';
 import type { IntegrationId } from '../integrations/providers/models';
 import {
 	HostingIntegrationId,
@@ -146,6 +148,8 @@ function assertsFocusStepState(state: StepState<State>): asserts state is FocusS
 const instanceCounter = getScopedCounter();
 
 const defaultCollapsedGroups: FocusGroup[] = ['draft', 'other', 'snoozed'];
+
+const debouncer = new Debouncer(500);
 
 export class FocusCommand extends QuickCommand<State> {
 	private readonly source: Source;
@@ -376,9 +380,9 @@ export class FocusCommand extends QuickCommand<State> {
 		{ picked, selectTopItem }: { picked?: string; selectTopItem?: boolean },
 	): StepResultGenerator<GroupedFocusItem | ConnectMoreIntegrationsItem> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
-		const getItems = (result: FocusCategorizedResult) => {
+		const getItems = (result: FocusCategorizedResult, isSearching?: boolean) => {
 			const items: (FocusItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem)[] = [];
-			if (context.showGraduationPromo) {
+			if (context.showGraduationPromo && !isSearching) {
 				items.push(
 					createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, undefined, {
 						label: `Preview access of Launchpad will end on September 27th`,
@@ -392,7 +396,7 @@ export class FocusCommand extends QuickCommand<State> {
 			if (result.items?.length) {
 				const uiGroups = groupAndSortFocusItems(result.items);
 				const topItem: FocusItem | undefined =
-					!selectTopItem || picked != null
+					!selectTopItem || picked != null || isSearching
 						? undefined
 						: uiGroups.get('mergeable')?.[0] ||
 						  uiGroups.get('blocked')?.[0] ||
@@ -401,42 +405,44 @@ export class FocusCommand extends QuickCommand<State> {
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					items.push(
-						createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
-						createDirectiveQuickPickItem(Directive.Reload, false, {
-							label: `$(${
-								context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
-							})\u00a0\u00a0${focusGroupIconMap.get(ui)!}\u00a0\u00a0${focusGroupLabelMap
-								.get(ui)
-								?.toUpperCase()}`, //'\u00a0',
-							//detail: groupMap.get(group)?.[0].toUpperCase(),
-							onDidSelect: () => {
-								const collapsed = !context.collapsed.get(ui);
-								context.collapsed.set(ui, collapsed);
-								if (state.initialGroup == null) {
-									void this.container.storage.store(
-										'launchpad:groups:collapsed',
-										Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
-									);
-								}
+					if (!isSearching) {
+						items.push(
+							createQuickPickSeparator(groupItems.length ? groupItems.length.toString() : undefined),
+							createDirectiveQuickPickItem(Directive.Reload, false, {
+								label: `$(${
+									context.collapsed.get(ui) ? 'chevron-down' : 'chevron-up'
+								})\u00a0\u00a0${focusGroupIconMap.get(ui)!}\u00a0\u00a0${focusGroupLabelMap
+									.get(ui)
+									?.toUpperCase()}`, //'\u00a0',
+								//detail: groupMap.get(group)?.[0].toUpperCase(),
+								onDidSelect: () => {
+									const collapsed = !context.collapsed.get(ui);
+									context.collapsed.set(ui, collapsed);
+									if (state.initialGroup == null) {
+										void this.container.storage.store(
+											'launchpad:groups:collapsed',
+											Array.from(context.collapsed.keys()).filter(g => context.collapsed.get(g)),
+										);
+									}
 
-								if (this.container.telemetry.enabled) {
-									updateTelemetryContext(context);
-									this.container.telemetry.sendEvent(
-										'launchpad/groupToggled',
-										{
-											...context.telemetryContext!,
-											group: ui,
-											collapsed: collapsed,
-										},
-										this.source,
-									);
-								}
-							},
-						}),
-					);
+									if (this.container.telemetry.enabled) {
+										updateTelemetryContext(context);
+										this.container.telemetry.sendEvent(
+											'launchpad/groupToggled',
+											{
+												...context.telemetryContext!,
+												group: ui,
+												collapsed: collapsed,
+											},
+											this.source,
+										);
+									}
+								},
+							}),
+						);
 
-					if (context.collapsed.get(ui)) continue;
+						if (context.collapsed.get(ui)) continue;
+					}
 
 					items.push(
 						...groupItems.map(i => {
@@ -485,7 +491,7 @@ export class FocusCommand extends QuickCommand<State> {
 			return items;
 		};
 
-		function getItemsAndPlaceholder() {
+		function getItemsAndPlaceholder(isSearching?: boolean) {
 			if (context.result.error != null) {
 				return {
 					placeholder: `Unable to load items (${
@@ -508,20 +514,26 @@ export class FocusCommand extends QuickCommand<State> {
 
 			return {
 				placeholder: 'Choose an item to focus on',
-				items: getItems(context.result),
+				items: getItems(context.result, isSearching),
 			};
 		}
 
 		const updateItems = async (
 			quickpick: QuickPick<FocusItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			search?: string,
 		) => {
 			quickpick.busy = true;
 
 			try {
-				await updateContextItems(this.container, context, { force: true });
+				await updateContextItems(this.container, context, { force: true, search: search });
 
-				const { items, placeholder } = getItemsAndPlaceholder();
+				const { items, placeholder } = getItemsAndPlaceholder(search != null);
 				quickpick.placeholder = placeholder;
+				if (search) {
+					for (const item of items) {
+						item.alwaysShow = true;
+					}
+				}
 				quickpick.items = items;
 			} finally {
 				quickpick.busy = false;
@@ -549,10 +561,50 @@ export class FocusCommand extends QuickCommand<State> {
 
 				if (groupsHidden != hideGroups) {
 					groupsHidden = hideGroups;
-					quickpick.items = hideGroups ? items.filter(i => !isDirectiveQuickPickItem(i)) : items;
+					quickpick.items = hideGroups
+						? quickpick.items.filter(i => !isDirectiveQuickPickItem(i))
+						: quickpick.items;
 				}
 
-				return true;
+				let updated = false;
+				for (const item of items) {
+					if (item.alwaysShow) {
+						item.alwaysShow = false;
+						updated = true;
+					}
+				}
+
+				if (updated) {
+					quickpick.items = items;
+				}
+
+				const { value } = quickpick;
+				const activeFocusItems = quickpick.activeItems.filter((i): i is FocusItemQuickPickItem => 'item' in i);
+				// TODO: Currently this just runs the search whenever you type in the box during this step.
+				// Instead, we should only search for the PR here if the user pasted a full URL into the box.
+				// If nothing is found, we can offer a "Search for another PR" option (UX needs discussion) to find
+				// the PR using the search query.
+				if (value?.length && !activeFocusItems.length) {
+					void debouncer.debounce(async () => {
+						const focusItems = quickpick.items.filter((i): i is FocusItemQuickPickItem => 'item' in i);
+						const { prNumber } = getPullRequestIdentityValuesFromSearch(value);
+						if (prNumber != null) {
+							const item = focusItems.find(i => i.item.id === prNumber);
+							if (item != null) {
+								if (!item.alwaysShow) {
+									item.alwaysShow = true;
+									// This is a hack because the quickpick doesn't update until you change the items
+									quickpick.items = [...quickpick.items];
+								}
+								return;
+							}
+						}
+
+						await updateItems(quickpick, value);
+					});
+				}
+
+				return false;
 			},
 			onDidClickButton: async (quickpick, button) => {
 				switch (button) {
@@ -1256,7 +1308,11 @@ function getIntegrationTitle(integrationId: string): string {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
+async function updateContextItems(
+	container: Container,
+	context: Context,
+	options?: { force?: boolean; search?: string },
+) {
 	context.result = await container.focus.getCategorizedItems(options);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
