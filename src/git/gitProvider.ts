@@ -112,6 +112,11 @@ export interface RepositoryVisibilityInfo {
 	remotesHash?: string;
 }
 
+export interface BranchContributorOverview {
+	readonly owner?: GitContributor;
+	readonly contributors?: GitContributor[];
+}
+
 export interface GitProvider extends Disposable {
 	get onDidChange(): Event<void>;
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
@@ -144,6 +149,8 @@ export interface GitProvider extends Disposable {
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
+
+	getBranchContributorOverview?(repoPath: string, ref: string): Promise<BranchContributorOverview | undefined>;
 
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
 	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;

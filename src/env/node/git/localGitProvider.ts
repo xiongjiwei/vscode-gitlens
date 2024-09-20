@@ -39,6 +39,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
+	BranchContributorOverview,
 	GitCaches,
 	GitDir,
 	GitProvider,
@@ -72,7 +73,7 @@ import {
 import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
-import { GitContributor } from '../../../git/models/contributor';
+import { GitContributor, sortContributors } from '../../../git/models/contributor';
 import type {
 	GitDiff,
 	GitDiffFile,
@@ -104,6 +105,7 @@ import type {
 } from '../../../git/models/reference';
 import {
 	createReference,
+	createRevisionRange,
 	getBranchTrackingWithoutRemote,
 	getReferenceFromBranch,
 	isBranchReference,
@@ -6043,6 +6045,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				repo = await gitApi.openRepository?.(uri);
 			}
 			return repo ?? undefined;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			return undefined;
+		}
+	}
+
+	@log()
+	async getBranchContributorOverview(repoPath: string, ref: string): Promise<BranchContributorOverview | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const base = await this.getBaseBranchName(repoPath, ref);
+			const contributors = await this.getContributors(repoPath, {
+				ref: createRevisionRange(ref, base, '...'),
+				stats: true,
+			});
+
+			sortContributors(contributors, { orderBy: 'count:desc' });
+			return {
+				// owner: contributors.find(c => c.email === this.getCurrentUser(repoPath)?.email),
+				contributors: contributors,
+			};
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;

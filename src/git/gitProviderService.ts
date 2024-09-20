@@ -43,6 +43,7 @@ import { configuration } from '../system/vscode/configuration';
 import { setContext } from '../system/vscode/context';
 import { getBestPath } from '../system/vscode/path';
 import type {
+	BranchContributorOverview,
 	GitCaches,
 	GitDir,
 	GitProvider,
@@ -1600,6 +1601,17 @@ export class GitProviderService implements Disposable {
 		}
 
 		return undefined;
+	}
+
+	@log()
+	async getBranchContributorOverview(
+		repoPath: string | Uri | undefined,
+		ref: string,
+	): Promise<BranchContributorOverview | undefined> {
+		if (repoPath == null) return undefined;
+
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getBranchContributorOverview?.(path, ref);
 	}
 
 	@log({ args: { 1: false } })
