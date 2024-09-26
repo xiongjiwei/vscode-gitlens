@@ -21,7 +21,7 @@ import { AccessDeniedError, CancellationError, ProviderNotFoundError, ProviderNo
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import { getApplicablePromo } from '../plus/gk/account/promos';
 import type { Subscription } from '../plus/gk/account/subscription';
-import { isSubscriptionExpired, isSubscriptionPaidPlan, SubscriptionPlanId } from '../plus/gk/account/subscription';
+import { isSubscriptionExpired, isSubscriptionPaidPlan } from '../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../plus/gk/account/subscriptionService';
 import type { HostingIntegration } from '../plus/integrations/integration';
 import type { RepoComparisonKey } from '../repositories';
