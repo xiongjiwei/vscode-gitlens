@@ -1,5 +1,6 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
+import { BranchError } from '../../git/errors';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
@@ -404,7 +405,7 @@ export class BranchGitCommand extends QuickCommand {
 				} catch (ex) {
 					Logger.error(ex);
 					// TODO likely need some better error handling here
-					return showGenericErrorMessage('Unable to create branch');
+					return showGenericErrorMessage(new BranchError(ex.reason, ex, state.name).message);
 				}
 			}
 		}
@@ -529,7 +530,9 @@ export class BranchGitCommand extends QuickCommand {
 			} catch (ex) {
 				Logger.error(ex);
 				// TODO likely need some better error handling here
-				return showGenericErrorMessage('Unable to delete branch');
+				return showGenericErrorMessage(
+					new BranchError(ex.reason, ex, state.references.map(r => r.name).join(', ')).message,
+				);
 			}
 		}
 	}
@@ -638,7 +641,7 @@ export class BranchGitCommand extends QuickCommand {
 			} catch (ex) {
 				Logger.error(ex);
 				// TODO likely need some better error handling here
-				return showGenericErrorMessage('Unable to rename branch');
+				return showGenericErrorMessage(new BranchError(ex.reason, ex, state.name).message);
 			}
 		}
 	}
