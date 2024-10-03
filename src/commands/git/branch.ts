@@ -405,7 +405,7 @@ export class BranchGitCommand extends QuickCommand {
 				} catch (ex) {
 					Logger.error(ex);
 					// TODO likely need some better error handling here
-					return showGenericErrorMessage(ex.WithBranch(state.name));
+					return showGenericErrorMessage(ex);
 				}
 			}
 		}
@@ -529,9 +529,9 @@ export class BranchGitCommand extends QuickCommand {
 						remote: state.flags.includes('--remotes'),
 					});
 				} catch (ex) {
-					Logger.error(ex);
 					// TODO likely need some better error handling here
-					return showGenericErrorMessage(ex.WithBranch(ref.name));
+					Logger.error(ex);
+					return showGenericErrorMessage(ex);
 				}
 			}
 		}
@@ -641,7 +641,7 @@ export class BranchGitCommand extends QuickCommand {
 			} catch (ex) {
 				Logger.error(ex);
 				// TODO likely need some better error handling here
-				return showGenericErrorMessage(ex.WithBranch(state.name));
+				return showGenericErrorMessage(ex);
 			}
 		}
 	}
