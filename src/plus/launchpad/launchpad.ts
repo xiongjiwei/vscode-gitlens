@@ -522,11 +522,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 		const updateItems = async (
 			quickpick: QuickPick<LaunchpadItemQuickPickItem | DirectiveQuickPickItem | ConnectMoreIntegrationsItem>,
+			search?: string,
 		) => {
 			quickpick.busy = true;
 
 			try {
-				await updateContextItems(this.container, context, { force: true });
+				await updateContextItems(this.container, context, { force: true, search: search });
 
 				const { items, placeholder } = getItemsAndPlaceholder();
 				quickpick.placeholder = placeholder;
@@ -552,7 +553,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				LaunchpadSettingsQuickInputButton,
 				RefreshQuickInputButton,
 			],
-			onDidChangeValue: quickpick => {
+			onDidChangeValue: async quickpick => {
 				const hideGroups = Boolean(quickpick.value?.length);
 
 				if (groupsHidden !== hideGroups) {
@@ -576,8 +577,13 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								// This is a hack because the quickpick doesn't update until you change the items
 								quickpick.items = [...quickpick.items];
 							}
+							// We have found an item that matches to the URL.
+							// Now it will be displayed as the found item and we exit this function now without sending any requests to API:
+							return true;
 						}
 					}
+					// Nothing is found above, so let's perform search in the API:
+					await updateItems(quickpick, value);
 				}
 
 				return true;
@@ -1314,7 +1320,11 @@ function getIntegrationTitle(integrationId: string): string {
 	}
 }
 
-async function updateContextItems(container: Container, context: Context, options?: { force?: boolean }) {
+async function updateContextItems(
+	container: Container,
+	context: Context,
+	options?: { force?: boolean; search?: string },
+) {
 	context.result = await container.launchpad.getCategorizedItems(options);
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
