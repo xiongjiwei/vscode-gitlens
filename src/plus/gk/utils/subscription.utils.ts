@@ -66,59 +66,7 @@ export function getSubscriptionStateString(state: SubscriptionState | undefined)
 }
 
 export function computeSubscriptionState(subscription: Optional<Subscription, 'state'>): SubscriptionState {
-	const {
-		account,
-		plan: { actual, effective },
-		previewTrial: preview,
-	} = subscription;
-
-	if (account?.verified === false) return SubscriptionState.VerificationRequired;
-
-	if (actual.id === effective.id || compareSubscriptionPlans(actual.id, effective.id) > 0) {
-		switch (actual.id === effective.id ? effective.id : actual.id) {
-			case SubscriptionPlanId.Community:
-				return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreviewExpired;
-
-			case SubscriptionPlanId.CommunityWithAccount: {
-				if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
-					return SubscriptionState.ProTrialReactivationEligible;
-				}
-
-				return SubscriptionState.ProTrialExpired;
-			}
-
-			case SubscriptionPlanId.Pro:
-			case SubscriptionPlanId.Advanced:
-			case SubscriptionPlanId.Teams:
-			case SubscriptionPlanId.Enterprise:
-				return SubscriptionState.Paid;
-		}
-	}
-
-	// If you have a paid license, any trial license higher tier than your paid license is considered paid
-	if (compareSubscriptionPlans(actual.id, SubscriptionPlanId.CommunityWithAccount) > 0) {
-		return SubscriptionState.Paid;
-	}
-	switch (effective.id) {
-		case SubscriptionPlanId.Community:
-			return preview == null ? SubscriptionState.Community : SubscriptionState.ProPreview;
-
-		case SubscriptionPlanId.CommunityWithAccount: {
-			if (effective.nextTrialOptInDate != null && new Date(effective.nextTrialOptInDate) < new Date()) {
-				return SubscriptionState.ProTrialReactivationEligible;
-			}
-
-			return SubscriptionState.ProTrialExpired;
-		}
-
-		case SubscriptionPlanId.Pro:
-		case SubscriptionPlanId.Advanced:
-		case SubscriptionPlanId.Teams:
-		case SubscriptionPlanId.Enterprise:
-			return actual.id === SubscriptionPlanId.Community
-				? SubscriptionState.ProPreview
-				: SubscriptionState.ProTrial;
-	}
+	return SubscriptionState.Paid;
 }
 
 export function getSubscriptionPlan(
