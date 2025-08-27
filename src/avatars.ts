@@ -204,11 +204,21 @@ export function getAvatarUriFromGravatarEmail(email: string, size: number, defau
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
-	const parts = getGitHubNoReplyAddressParts(email);
-	if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
+	// Logger.warn("email address is no reply: ", email);
+	// const parts = getGitHubNoReplyAddressParts(email);
+	// if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
 
+	// Logger.warn(parts.authority, parts.login, parts.userId);
+	// return Uri.parse(
+	// 	`https://avatars.githubusercontent.com/${parts.userId ? `u/${parts.userId}` : parts.login}?size=${size}`,
+	// );
+	const baiduEmailRegex = /^([a-zA-Z0-9._-]+)@baidu.com$/i;
+	const match = baiduEmailRegex.exec(email);
+	if (match == null) return undefined;
+
+	const [, userId] = match;
 	return Uri.parse(
-		`https://avatars.githubusercontent.com/${parts.userId ? `u/${parts.userId}` : parts.login}?size=${size}`,
+		`https://eefe.baidu-int.com/avatars/${userId}`,
 	);
 }
 
