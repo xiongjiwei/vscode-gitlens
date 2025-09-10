@@ -1325,8 +1325,8 @@ export class SubscriptionService implements Disposable {
 		if (subscription == null) {
 			subscription = {
 				plan: {
-					actual: getSubscriptionPlan('community', false, 0, undefined),
-					effective: getSubscriptionPlan('community', false, 0, undefined),
+					actual: getSubscriptionPlan('pro', false, 0, undefined),
+					effective: getSubscriptionPlan('pro', false, 0, undefined),
 				},
 				account: undefined,
 				state: SubscriptionState.Community,
